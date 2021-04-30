@@ -61,7 +61,7 @@ if [ -z "$CONTAINER" ]; then
 	CONTAINER=$( pwd )/$CONTAINER_NAME
 	echo $CONTAINER
 fi
-if [ ! -f "$( pwd )/$CONTAINER" ]; then
+if [ ! -f "$CONTAINER" ]; then
 	echo "Container '$CONTAINER' does not exist" >&2
 	exit 1
 fi
