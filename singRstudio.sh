@@ -20,6 +20,7 @@ show_help() {
        printf " -b bind                bind paths\n"
        printf " -t tmp dir	       tmp dir for bind paths, default=~/tmp\n"
        printf " -r R lib	       set path to host R libs\n"
+       printf " -P Python lib	       set path to host Python library of virtualenv\n"
        printf " -d dry run	       dry run, construct singularity command\n"
        return 0
 }
@@ -31,7 +32,7 @@ PORT="8788"
 TMPDIR="~/tmp"
 RLIB_CONTAINER="/usr/local/lib/R/site-library,/usr/local/lib/R/library"
 DRY_RUN=false
-while getopts "h?a:p:c:l:b:t:r:d" opt; do
+while getopts "h?a:p:c:l:b:t:r:P:d" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -50,6 +51,8 @@ while getopts "h?a:p:c:l:b:t:r:d" opt; do
     t)  TMPDIR=$OPTARG
 	;;
     r)  RLIB=$OPTARG
+	;;
+    P)  PLIB=$OPTARG
 	;;
     d)  DRY_RUN=true
 	;;
@@ -99,13 +102,25 @@ else
 	RLIB_BIND_LOC="/home/rstudio/Rlib"
 	RLIB_COMB="$RLIB_BIND_LOC,$RLIB_CONTAINER"
 fi
+
+if [ -z "$PLIB" ]; then
+	echo "No PLIB specified, installing packages is restricted."
+	PLIB_COMB="$PLIB_CONTAINER"
+elif  [ ! -d "$PLIB" ]; then
+	echo "Directory '$PLIB' does not exist"
+	exit 1
+else
+	PLIB_BIND_LOC="/home/rstudio/.virtualenvs/python_rstudio_env/lib/python3.9"
+	PLIB_COMB="$PLIB_BIND_LOC,$PLIB_CONTAINER"
+fi
+
 # random string for subdirectory
 TMPDIR_SINGULARITY=$( cat /dev/urandom | tr -dc '[:alnum:]' | fold -w ${1:-8} | head -n 1 )
 # create temporary subdirectories
-mkdir -p $TMPDIR/$TMPDIR_SINGULARITY/{run,tmp,db,rstudio,rsession,.rstudio-desktop}
+mkdir -p $TMPDIR/$TMPDIR_SINGULARITY/{run,tmp,db,rstudio,rsession,.rstudio-desktop,.share,.config,plib}
 
-
-BIND_UTILS="$TMPDIR/$TMPDIR_SINGULARITY/tmp:/tmp,$TMPDIR/$TMPDIR_SINGULARITY/run:/run,$TMPDIR/$TMPDIR_SINGULARITY/db:/var/lib/rstudio-server,$TMPDIR/$TMPDIR_SINGULARITY/rstudio:/home/rstudio,$TMPDIR/$TMPDIR_SINGULARITY/rsession/rsession.conf:/etc/rstudio/rsession.conf,$TMPDIR/$TMPDIR_SINGULARITY/.rstudio-desktop:/home/$USER/.rstudio-desktop"
+#$TMPDIR/$TMPDIR_SINGULARITY/rstudio:/home/rstudio,
+BIND_UTILS="$TMPDIR/$TMPDIR_SINGULARITY/tmp:/tmp,$TMPDIR/$TMPDIR_SINGULARITY/run:/run,$TMPDIR/$TMPDIR_SINGULARITY/db:/var/lib/rstudio-server,$TMPDIR/$TMPDIR_SINGULARITY/rsession/rsession.conf:/etc/rstudio/rsession.conf,$TMPDIR/$TMPDIR_SINGULARITY/.rstudio-desktop:/home/$USER/.rstudio-desktop,/home/$USER/.local/share/rstudio:/home/$USER/.local/share/rstudio,/home/$USER/.config/rstudio:/home/$USER/.config/rstudio,/home/$USER/.R/gargle/gargle-oauth:/home/$USER/.R/gargle/gargle-oauth"
 
 if [ ! -z "$RLIB" ]; then
 	BIND_UTILS="$BIND_UTILS,$RLIB:$RLIB_BIND_LOC"
@@ -115,7 +130,13 @@ else
 	touch $TMPDIR/$TMPDIR_SINGULARITY/rsession/rsession.conf
 	#cat $TMPDIR/$TMPDIR_SINGULARITY/rsession/rsession.conf
 fi
+if [ ! -z "$PLIB" ]; then
+	echo "copy python lib"
+	tmpcmd="SINGULARITY_BIND='$TMPDIR/$TMPDIR_SINGULARITY/plib:/tmp/plib' singularity exec $CONTAINER cp -R $PLIB_BIND_LOC/site-packages /tmp/plib"
+	eval $tmpcmd
 
+	BIND_UTILS="$BIND_UTILS,$TMPDIR/$TMPDIR_SINGULARITY/plib:$PLIB_BIND_LOC"
+fi
 
 if [ -z "$BIND" ]; then
 	SINGULARITY_BIND="$BIND_UTILS"
@@ -132,7 +153,7 @@ function ctrl_c() {
 }
 
 #SINGULARITY_CMD="R_LIBS_USER='$RLIB_COMB' SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT"
-SINGULARITY_CMD="SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT"
+SINGULARITY_CMD="SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec --no-home $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT"
 if $DRY_RUN; then
 	echo $SINGULARITY_CMD
 else 
