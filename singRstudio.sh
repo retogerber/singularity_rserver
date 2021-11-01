@@ -65,6 +65,21 @@ shift "$(( OPTIND - 1 ))"
 
 #echo $CONTAINER_LOCATION
 # input checks
+if [ ! -z $PORT ]; then
+        port_used=$( ss -tulw | grep $PORT | wc -l )
+                if [ $port_used -gt 0 ]; then
+                        for port in $(seq 8788 65000); do
+                                is_open_port=$( ss -tulw | grep $port | wc -l )
+                                if [ $is_open_port -eq 0 ]; then
+                                        open_port=$port
+                                        break
+                        fi
+                done
+                echo "Port $PORT already in use, please choose a different port. Next open port: $open_port"
+                exit 1
+        fi
+fi
+
 if [ -z "$CONTAINER" ] && [ -z "$CONTAINER_LOCATION" ]; then
 	echo 'One of -c or -l has to be specified' >&2
 	exit 1
