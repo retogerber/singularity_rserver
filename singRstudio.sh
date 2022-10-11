@@ -168,7 +168,7 @@ function ctrl_c() {
 }
 
 #SINGULARITY_CMD="R_LIBS_USER='$RLIB_COMB' SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT"
-SINGULARITY_CMD="SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec --no-home $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT"
+SINGULARITY_CMD="SINGULARITY_BIND='$SINGULARITY_BIND' PASSWORD='$PASSWORD' singularity exec --no-home $CONTAINER rserver --auth-none=0 --auth-pam-helper=pam-helper --www-address=127.0.0.1 --www-port $PORT --server-user $USER"
 if $DRY_RUN; then
 	echo $SINGULARITY_CMD
 else 
